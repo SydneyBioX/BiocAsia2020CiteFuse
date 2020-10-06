@@ -3,7 +3,7 @@ title: "CiteFuse"
 author: Hani Jieun Kim and Yingxin Lin^[hani.kim@sydney.edu.au]
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{An Example Workshop}
+  %\VignetteIndexEntry{CiteFuse}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
