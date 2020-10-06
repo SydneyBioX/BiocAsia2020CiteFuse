@@ -1,5 +1,5 @@
 ---
-title: "An Example Workshop"
+title: "CiteFuse"
 author: Sean Davis^[seandavi@gmail.com]
 output: rmarkdown::html_vignette
 vignette: >
