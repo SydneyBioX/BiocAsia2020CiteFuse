@@ -55,7 +55,7 @@ Background reading:
 
 ### Participation
 
-Participants will learn how 
+Participants will learn how to... 
 
 ### _R_ / _Bioconductor_ packages used
 
@@ -63,7 +63,7 @@ Participants will learn how
 
 ### Time outline
 
-An example for a 45-minute workshop:
+An example for a 55-minute workshop:
 
 | Activity                            | Time |
 |-------------------------------------|------|
@@ -109,351 +109,501 @@ Some examples:
 
 The dataset we will be working with concerns a single-cell RNA-sequencing dataset consisting of two different experiments, which correspond to two treatments. [McFaline-Figueroa et al.](https://www.nature.com/articles/s41588-019-0489-5) studied the epithelial-to-mesenchymal transition (EMT), where cells spatially migrate from the epithelium to the mesenchyme during development. This process will be described by a trajectory, reflecting the gene expression changes occurring during this migration. The authors furthermore studied both a control (`Mock`) condition, and a condition in the absence of transforming growth factor $\beta$ (TGFB).
 
-In summary, we will be investigating a trajectory consisting of a single lineage that represents the EMT. This lineage is studied in two different conditions; a control condition and a TGFB-absent condition.
+In summary, we will be predominantly investigating a CITE-seq dataset consisting of PBMCs. For simplicity, this lineage is studied in two different conditions; a control condition and a TGFB-absent condition.
 
-## Doublet detection
+First, install `CiteFuse` using `BiocManager`.
 
-
-## Integration
-
-Our dataset contains cells collected from samples undergoing two different treatment conditions which were necessarily collected separately. Hence, we will start with an integration step to combine these two sets of cells, similar to batch correction. Our goal is to remove the technical effects of the different sample collections while preserving any true, biological differences between the two treatment groups.
-
-Data integration and normalization are complex problems and there are a variety of methods addressing each. Interested participants can explore [the corresponding chapter of the Bioconductor Ebook](https://osca.bioconductor.org/integrating-datasets.html). However, since neither is the main focus of this workshop, we elected to use an existing pipeline for these tasks. The full Seurat data integration workflow with SCTransform normalization is described in [this vignette](https://satijalab.org/seurat/v3.1/integration.html).
-
-Since this whole step is quite slow, it will not be run during the workshop but the code is provided below, along with a function to download and preprocess the public data from GEO.
-
-```{r integration, eval=FALSE}
-
+```{r eval=FALSE}
+if (!requireNamespace("BiocManager", quietly = TRUE)) {
+ install.packages("BiocManager")
+}
+BiocManager::install("CiteFuse")
 ```
 
-## Import dataset
+```{r}
+library(CiteFuse)
+library(scater)
+library(SingleCellExperiment)
+library(DT)
+```
 
 We have made the pre-processed, integrated dataset available as a `SingleCellExperiment` object in the workshop package, which we import below.
 
 ```{r}
-data("sce", package = "bioc2020trajectories")
+data("CITEseq_example", package = "CiteFuse")
+names(CITEseq_example)
+lapply(CITEseq_example, dim)
+```
+
+Here, we start from a list of three matrices of unique molecular identifier (UMI), antibody derived tags (ADT) and hashtag oligonucleotide (HTO) count, which have common cell names. There are 500 cells in our subsetted dataset. And characteristically of CITE-seq data, the matrices are matched, meaning that for any given cell we know the expression level of their RNA transcripts (genome-wide) and its corresponding cell surface protein expression. The `preprocessing` function will utilise the three matrices and its common cell names to create a `SingleCellExperiment` object, which stores RNA data in an `assay` and `ADT` and `HTO` data within in the `altExp` slot.
+
+## Doublet detection using `CiteFuse`
+
+### HTO Normalisation and Visualisation
+
+The function `normaliseExprs` is used to scale the alternative expression. Here, we used it to perform log-transformation of the `HTO` count, by setting `transform = "log"`.
+
+```{r}
+sce_citeseq <- normaliseExprs(sce = sce_citeseq, 
+                              altExp_name = "HTO", 
+                              transform = "log")
+```
+
+Then we can perform dimension reduction on the `HTO` count by using `runTSNE` or `runUMAP`, then use `visualiseDim` function to visualise the reduced dimension plot. Our CITE-seq dataset contain data from four samples that were pooled before sequencing. The samples were multiplexed through cell hashing (Stoekius et al., 2018). The four clusters observed on reduced dimension plots equate to the four different samples. 
+
+```{r fig.height=6, fig.width=6}
+sce_citeseq <- scater::runTSNE(sce_citeseq, 
+                               altexp = "HTO", 
+                               name = "TSNE_HTO", 
+                               pca = TRUE)
+visualiseDim(sce_citeseq,
+             dimNames = "TSNE_HTO") + labs(title = "tSNE (HTO)")
+sce_citeseq <- scater::runUMAP(sce_citeseq, 
+                               altexp = "HTO", 
+                               name = "UMAP_HTO")
+visualiseDim(sce_citeseq,
+             dimNames = "UMAP_HTO") + labs(title = "UMAP (HTO)")
 ```
 
 
-## Differential Topology
 
-Once the two datasets have been integrated, we can visualize all the single cells in a shared reduced dimensional space. 
-We also visualize the distribution of cells in this space according to the treatment (control and TGFB) and spatial location (inner cells versus outer cells).
+### Doublet identification step 1: cross-sample doublet detection
 
+An important step in single cell data analysis is the removal of doublets. Doublets form as a result of co-encapsulation of cells within a droplet, leading to a hybrid transcriptome from two or more cells. In CiteFuse, we implement a step-wise doublet detection approach to remove doublets. We first identify the cross-sample doublets via the `crossSampleDoublets` function.
 
-```{r compute scores, eval = TRUE, fig.width=7}
-shuffle <- sample(ncol(sce))
-layout(matrix(1:2, nrow = 1))
-par(mar = c(4.5,4,1,1))
-plot(reducedDims(sce)$UMAP[shuffle, ],
-  asp = 1, pch = 16, xlab = "UMAP-1", ylab = "UMAP-2",
-  col = alpha(c(1:2)[factor(colData(sce)$pheno$treatment_id)][shuffle], alpha = .5))
-legend("topright", pch = 16, col = 1:2, bty = "n", 
-       legend = levels(factor(colData(sce)$pheno$treatment_id)))
-plot(reducedDims(sce)$UMAP[shuffle, ], asp = 1, pch = 16, xlab = "UMAP-1", ylab = "UMAP-2", 
-     col = alpha(c(3, 4)[factor(colData(sce)$pheno$spatial_id)][shuffle], alpha = .5))
-legend("topright", pch = 16, col = 3:4, bty = "n", legend = levels(factor(colData(sce)$pheno$spatial_id)))
-layout(1)
-par(mar = c(5, 4, 4, 2) + .1)
+```{r}
+sce_citeseq <- crossSampleDoublets(sce_citeseq)
+```
+
+The results of the cross sample doublets are then saved in `colData` as `doubletClassify_between_label` and `doubletClassify_between_class`.
+
+```{r}
+table(sce_citeseq$doubletClassify_between_label)
+table(sce_citeseq$doubletClassify_between_class)
+```
+
+We can then highlight the cross-sample doublets in our tSNE plot of HTO count.
+
+```{r fig.height=6, fig.width=6}
+visualiseDim(sce_citeseq, 
+             dimNames = "TSNE_HTO", 
+             colour_by = "doubletClassify_between_label")
 ```
 
 
-We know from biological knowledge that the EMT development goes from the inner to the outer cells. The question is: should we fit a separate trajectory for each condition? We might expect the trajectory itself to be changed by the treatment if the treatment effect is systematically large. Otherwise, the treatment may impact the expression profile of some genes but the overall trajectory will be preserved. 
+Furthermore, `plotHTO` function allows us to plot the pairwise scatter HTO count. Any cells that show co-expression of orthologocal HTOs (red) are considered as doublets. 
 
-To help assess this, we devised an imbalance score. Regions with a high score indicate that the local cell distribution according to treatment label is unbalanced compared the overall distribution. Here, we see that, while there are some small regions of imbalance, the global path along the development axis is well-balanced. This means that we can fit a global trajectory to the full dataset. This choice allows us to use the maximal amount of data in the construction of our trajectory, which should lead to more robust results than separate, potentially noisy trajectories constructed on subsets of the data. As we will see, not all cell types are necessarily present in every condition, so this approach ensures that our trajectory accounts for all cell types present in the overall data. 
-
-```{r, eval = TRUE}
-scores <- bioc2020trajectories::imbalance_score(
-  rd = reducedDims(sce)$UMAP, 
-  cl = colData(sce)$pheno$treatment_id,
-  k = 20, smooth = 40)
-grad <- viridis::plasma(10, begin = 0, end = 1)
-names(grad) <- levels(cut(scores$scaled_scores, breaks = 10))
-plot(reducedDims(sce)$UMAP, col = grad[cut(scores$scaled_scores, breaks = 10)],
-     asp = 1, pch = 16, xlab = "UMAP-1", ylab = "UMAP-2", cex = .8)
-legend("topleft", legend = names(grad), col = grad, pch = 16, bty = "n", cex = 2 / 3)
-```
-
-For more information on the score, run `help("imbalance_score", "bioc2020trajectories")`
-
-## Trajectory Inference
-
-We perform trajectory inference to order the cells according to EMT progression. We  use `slingshot` for trajectory inference, with the cells' position (inner or outer) serving as the cluster identifier. This ensures that we will only find a single lineage while still allowing sufficient flexibility to correctly orient the pseudotime axis.
-
-Note that we perform trajectory inference using cells from both conditions, rather than splitting the data into two groups, as discussed above. 
-
-```{r slingshot, eval = TRUE}
-library(slingshot)
-sce <- slingshot(sce, reducedDim = 'UMAP', clusterLabels = colData(sce)$pheno$spatial_id,
-                 start.clus = 'inner', approx_points = 150)
+```{r fig.height=8, fig.width=6}
+plotHTO(sce_citeseq, 1:4)
 ```
 
 
-```{r plotSlingshot, echo = FALSE, fig.width =  8}
-layout(matrix(c(1, 1, 2, 3), 2))
-par(mar = c(4.5, 4, 1, 1))
-plot(reducedDims(sce)$UMAP[shuffle, ], asp = 1, pch = 16, xlab = "UMAP-1", ylab = "UMAP-2",
-  col = hcl.colors(100, alpha = .5)[cut(sce$slingPseudotime_1, breaks = 100)][shuffle])
-lines(SlingshotDataSet(sce))
-# Pseudotime densities (by spatial)
-ds <- list( Inner = density(slingPseudotime(sce)[colData(sce)$pheno$spatial_id == "inner", 1]),
-            Outer = density(slingPseudotime(sce)[colData(sce)$pheno$spatial_id == "outer", 1]))
-xlim <- range(c(ds$Inner$x, ds$Outer$x))
-ylim <- range(c(ds$Inner$y, ds$Outer$y))
-plot(xlim, ylim, col = "white", xlab = "Pseudotime", ylab = "")
-polygon(c(min(ds$Inner$x), ds$Inner$x, max(ds$Inner$x)), c(0, ds$Inner$y, 0),
-  col = alpha(brewer.pal(4, "Set1")[3], alpha = .5))
-polygon(c(min(ds$Outer$x), ds$Inner$x, max(ds$Inner$x)), c(0, ds$Outer$y, 0),
-        col = alpha(brewer.pal(4, "Set1")[2], alpha = .5))
-legend("topleft", legend = c("Inner", "Outer"), 
-       fill = alpha(brewer.pal(4, "Set1")[3:2], alpha = .5), bty = "n")
-plot(reducedDims(sce)$UMAP[shuffle, ], asp = 1, pch = 16, xlab = "UMAP-1", ylab = "UMAP-2", 
-     col = alpha(c(3, 4)[factor(colData(sce)$pheno$spatial_id)][shuffle], alpha = .5))
-lines(SlingshotDataSet(sce), type = 'lineages', show.constraints = TRUE)
-legend("topright", pch = 16, col = 3:4, bty = "n", legend = levels(factor(colData(sce)$pheno$spatial_id)))
-layout(1)
-par(mar = c(5, 4, 4, 2) + .1)
+### Doublet identification step 1: within-sample doublet detection
+
+We then identify the within-sample doublets via the `withinSampleDoublets` function.
+
+```{r}
+sce_citeseq <- withinSampleDoublets(sce_citeseq,
+                                    minPts = 10)
 ```
 
-## Differential progression
+The results of the cross sample doublets are then saved in the `colData` as `doubletClassify_within_label` and `doubletClassify_within_class`.
 
-Now that we have ordered the cells by EMT progression, we can begin to address the main question: how is this progression affected by TGF-$\beta$ treatment? In this section, we interpret this question as a univariate analysis of the pseudotime values between the two groups.
-
-```{r plotDensities, echo=FALSE, fig.height=4}
-# Pseudotime densities (by treatment)
-ds <- list(Mock = density(slingPseudotime(sce)[colData(sce)$pheno$treatment_id == "Mock", 1]),
-           TGFB = density(slingPseudotime(sce)[colData(sce)$pheno$treatment_id == "TGFB", 1]))
-xlim <- range(c(ds$Mock$x, ds$TGFB$x))
-ylim <- range(c(ds$Mock$y, ds$TGFB$y))
-plot(xlim, ylim, col = "white", xlab = "Pseudotime", ylab = "")
-polygon(c(min(ds$Mock$x),ds$Mock$x,max(ds$Mock$x)),
-		c(0,ds$Mock$y,0), col = rgb(0,0,0,.5))
-polygon(c(min(ds$TGFB$x),ds$Mock$x,max(ds$Mock$x)),
-		c(0,ds$TGFB$y,0), col = alpha(brewer.pal(4,'Set1')[1], alpha = .5))
-legend("topright", legend = c("Mock", "TGFB"), 
-       fill = alpha(c(1, brewer.pal(3, "Set1")[1]), alpha = .5), bty = "n")
+```{r}
+table(sce_citeseq$doubletClassify_within_label)
+table(sce_citeseq$doubletClassify_within_class)
 ```
 
-The density estimates for the two groups show a trimodal distribution for the untreated cells, but a tendency toward later pseudotime values in the TGF-$\beta$ treated cells. The difference is striking enough that a standard T-test would likely be significant, but we are we are interested more generally in differences between the two distributions, not just the difference of means (one could imagine a scenario in which the treated group tended toward the extremes, but the means were the same). Hence, we propose a Kolmogorov-Smirnov Test to assess whether the two groups of pseudotime values are derived from the same distribution. For more info on the Kolmogorov-Smirnov Test, see [here](https://en.wikipedia.org/wiki/Kolmogorov%E2%80%93Smirnov_test).
+Again, we can visualise the within-sample doublets in our tSNE plot.
 
-```{r KStest, eval = FALSE}
-########################
-### Kolmogorov-Smirnov Test
-########################
-ks.test(slingPseudotime(sce)[colData(sce)$pheno$treatment_id == "Mock", 1],
-        slingPseudotime(sce)[colData(sce)$pheno$treatment_id == "TGFB", 1])
+```{r fig.height=6, fig.width=6}
+visualiseDim(sce_citeseq, 
+             dimNames = "TSNE_HTO", 
+             colour_by = "doubletClassify_within_label")
 ```
 
-As we might expect from the plot, this test is highly significant, so we can conclude that there are differences between the two distributions.
+Finally, we can filter out the doublet cells (both within and between batches) for the downstream analysis.
 
-## Differential expression
-
-We will now proceed to discover genes whose expression is associated with the inferred trajectory. We will look for genes that (i) change in gene expression along the trajectory, and (ii) are differentially expressed between the two conditions along the trajectory. The differential expression analysis uses the Bioconductor package `tradeSeq`. This analysis relies on a new version of `tradeSeq`, which can be installed from the [conditions branch](https://github.com/statOmics/tradeSeq/tree/conditions) on GitHub.
-
-For each condition (i.e., control and TGF-Beta), a smooth average expression profile along pseudotime will be estimated for each gene, using a negative binomial generalized additive model (NB-GAM).
-Each differential expression hypothesis of interest will then be translated into testing specific features (a linear combination of the parameters) of this smoothed expression estimate. 
-
-The next two paragraphs can be time-consuming so we will not run them during the workshop, however, their output is already present in the data object that was loaded at the start of this workshop. They can be easily parallelized, relying on the `BiocParallel` bioconductor package. See [here](https://statomics.github.io/tradeSeq/articles/fitGAM.html#parallel-computing-1) for more details.
-
-### Select number of knots
-
-Before we can fit these smoothed expression profiles, we need to get a sense of how complex the expression patterns are in this dataset. This is translated into selecting a number of knots for the NB-GAMs, where a higher number of knots allows for more complex expression patterns. Here, we pick $5$ knots.
-
-See [here](https://people.maths.bris.ac.uk/~sw15190/mgcv/) for more information on smoothers.
-
-```{r evaluateK, eval=FALSE}
-library(tradeSeq)
-set.seed(3)
-icMat <- evaluateK(counts = as.matrix(assays(sce)$counts),
-                   pseudotime = colData(sce)$slingshot$pseudotime,
-                   cellWeights = colData(sce)$slingshot$cellWeights.V1,
-                   conditions = factor(colData(sce)$pheno$treatment_id),
-                   nGenes = 300,
-                   k = 3:7)
-```
-
-```{r, echo=FALSE}
-knitr::include_graphics("../data/evaluateKResult.png")
-```
-
-The plot above shows the graphical output from running `evaluateK`. The left panel shows the distribution of gene-level AIC values as compared to their average AIC over the range of `k`. The second and third panel plot the average AIC and relative AIC with respect to the lowest value of `k` (i.e., 3), respectively, as a function of `k`. Finally, the right panel plots the number of genes whose AIC is lowest at a particular value of `k`.
-
-Choosing an appropriate value of `k` can be seen as analogous to choosing the number of principal components based on a scree plot: we look for an 'elbow point', where the decrease starts attenuating. Here, we choose `k=5` to allow for flexible, yet simple, functions while limiting the computational burden. In general, we found the influence of choosing the exact value of `k` to be rather limited, unless `k` is arbitrarily small or large. In our evaluations, most datasets fall within the range of $4$ to $8$ knots.
-
-### Fit GAM
-
-Next, we fit the NB-GAMs using 5 knots, based on the pseudotime and cell-level weights estimated by Slingshot. We use the `conditions` argument to fit separate smoothers for each condition.
-
-```{r, eval=FALSE}
-set.seed(3)
-sce <- fitGAM(counts = as.matrix(assays(sce)$counts),
-              pseudotime = colData(sce)$slingshot$pseudotime,
-              cellWeights = colData(sce)$slingshot$cellWeights.V1,
-              conditions = factor(colData(sce)$pheno$treatment_id),
-              nknots = 5)
-mean(rowData(sce)$tradeSeq$converged)
+```{r}
+sce_citeseq <- sce_citeseq[, sce_citeseq$doubletClassify_within_class == "Singlet" & sce_citeseq$doubletClassify_between_class == "Singlet"]
+sce_citeseq
 ```
 
 
-### Assess DE along pseudotime (or pseudospace)
+## Clustering
 
-Note that the axis represented by the trajectory in this dataset is actually the migration of cells from the epithelium to the mesenchyme and therefore could also be looked at as a space dimension, although it is likely to be correlated with chronological time, too.
+### Performing SNF
 
-To assess significant changes in gene expression as a function of pseudotime within each lineage, we use the `associationTest`, which tests the null hypothesis that gene expression is not a function of pseudotime, i.e., whether the estimated smoothers are significantly varying as a function of pseudotime within each lineage. The `lineages=TRUE` argument specifies that we would like the results for each lineage separately, asides from the default global test, which tests for significant associations across all lineages in the trajectory simultaneously. Further, we specify a log2 fold change cut-off to test against using the `l2fc` argument. 
+The first step of analysis is to integrate the RNA and ADT matrix. We use a popular integration algorithm called similarity network fusion (SNF) to integrate the multiomic data. 
 
-On a lineage-specific basis, there are over twice as much DE genes in the mock lineage (2398) as compared to the TGFB lineage (1013). Many of the DE genes in the TGFB condition are also DE in the mock condition, around 80%. 
-
-The authors of the original paper found $1105$ DE genes for the mock condition on a FDR level of $1e-10$ and a cut-off of 1 on the absolute value of the log2 fold change.
-
-
-```{r, eval=TRUE}
-library(tradeSeq)
-assocRes <- associationTest(sce, lineages = TRUE, l2fc = log2(2))
-mockGenes <-  rownames(assocRes)[
-  which(p.adjust(assocRes$pvalue_lineage1_conditionMock, "fdr") <= 0.05)
-]
-tgfbGenes <-  rownames(assocRes)[
-  which(p.adjust(assocRes$pvalue_lineage1_conditionTGFB, "fdr") <= 0.05)
-]
-length(mockGenes)
-length(tgfbGenes)
-UpSetR::upset(fromList(list(mock = mockGenes, tgfb = tgfbGenes)))
+```{r}
+sce_citeseq <- scater::logNormCounts(sce_citeseq)
+sce_citeseq <- normaliseExprs(sce_citeseq, altExp_name = "ADT", transform = "log")
+system.time(sce_citeseq <- CiteFuse(sce_citeseq))
 ```
 
-#### Visualization of DE genes
+We now proceed with the fused matrix, which is stored as `SNF_W` in our `sce_citeseq` object. 
 
-Below we visualize and cluster the genes whose expression vary over pseudotime, using the smoothed expression patterns
-As was also observed in the original manuscript, genes are mainly upregulated at the start- or endpoints of the lineage.
+### Performing spectral clustering
 
-```{r, eval=TRUE}
-### based on mean smoother
-yhatSmooth <- predictSmooth(sce, gene = mockGenes, nPoints = 50, tidy = FALSE)
-heatSmooth <- pheatmap(t(scale(t(yhatSmooth[, 1:50]))),
-                       cluster_cols = FALSE,
-                       show_rownames = FALSE, 
-                       show_colnames = FALSE)
-## the hierarchical trees constructed here, can also be used for 
-## clustering of the genes according to their average expression pattern.
-cl <- sort(cutree(heatSmooth$tree_row, k = 6))
-table(cl)
+CiteFuse implements two different clustering algorithms on the fused matrix, spectral clustering and Louvain clustering. First, we perform spectral clustering with sufficient numbers of `K` and use the eigen values to determine the optimal number of clusters. 
+
+```{r}
+SNF_W_clust <- spectralClustering(metadata(sce_citeseq)[["SNF_W"]], K = 20)
+plot(SNF_W_clust$eigen_values)
+which.max(abs(diff(SNF_W_clust$eigen_values)))
+```
+
+Using the optimal cluster number defined from the previous step, we can now use the `spectralClutering` function to cluster the single cells by specifying the number of clusters in `K`. The function takes a cell-to-cell similarity matrix as an input. We have already created the fused similarity matrix from `CiteFuse`. Since the `CiteFuse` function creates and stores the similarity matries from ADT and RNA expression, as well the fused matrix, we can use these two to compare the clustering outcomes by data modality. 
+
+```{r}
+SNF_W_clust <- spectralClustering(metadata(sce_citeseq)[["SNF_W"]], K = 5)
+sce_citeseq$SNF_W_clust <- as.factor(SNF_W_clust$labels)
+SNF_W1_clust <- spectralClustering(metadata(sce_citeseq)[["ADT_W"]], K = 5)
+sce_citeseq$ADT_clust <- as.factor(SNF_W1_clust$labels)
+SNF_W2_clust <- spectralClustering(metadata(sce_citeseq)[["RNA_W"]], K = 5)
+sce_citeseq$RNA_clust <- as.factor(SNF_W2_clust$labels)
 ```
 
 
-```{r, eval=FALSE}
-conditions <- colData(sce)$pheno$treatment_id
-pt1 <- colData(sce)$slingshot$pseudotime
-  
-### based on fitted values (plotting takes a while to run)
-yhatCell <- predictCells(sce, gene=mockGenes)
-yhatCellMock <- yhatCell[,conditions == "Mock"]
-# order according to pseudotime
-ooMock <- order(pt1[conditions == "Mock"], decreasing=FALSE)
-yhatCellMock <- yhatCellMock[,ooMock]
-pheatmap(t(scale(t(yhatCellMock))), cluster_cols = FALSE,
-          show_rownames = FALSE, show_colnames=FALSE)
+### Visualisation
+
+The outcome of the clustering can be easily visualised on a reduced dimensions plot by highlighting the points by cluster label. 
+
+```{r fig.height=8, fig.width=8}
+sce_citeseq <- reducedDimSNF(sce_citeseq,
+                             method = "tSNE", 
+                             dimNames = "tSNE_joint")
+g1 <- visualiseDim(sce_citeseq, dimNames = "tSNE_joint", colour_by = "SNF_W_clust") +
+  labs(title = "tSNE (SNF clustering)")
+g2 <- visualiseDim(sce_citeseq, dimNames = "tSNE_joint",  colour_by = "ADT_clust") +
+  labs(title = "tSNE (ADT clustering)")
+g3 <- visualiseDim(sce_citeseq, dimNames = "tSNE_joint",  colour_by = "RNA_clust") +
+  labs(title = "tSNE (RNA clustering)")
+library(gridExtra)
+grid.arrange(g3, g2, g1, ncol = 2)
 ```
 
-#### Gene set enrichment analysis on genes from the Mock condition
+The expression of genes and proteins can be visualised by changing the `colour_by` parameter to assess the clusters. As an example, we highlight the plot by the RNA and ADT expression level of CD8.
 
-Gene set enrichment analysis on the DE genes within the mock condition confirms the biology on epithelial cell differentiation.
-
-```{r, eval=TRUE}
-## C5 category is according to gene ontology grouping: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4707969/pdf/nihms-743907.pdf
-geneSets <- msigdbr(species = "Mus musculus", category = "C5", subcategory = "BP")
-### filter background to only include genes that we assessed.
-geneSets$gene_symbol <- toupper(geneSets$gene_symbol)
-geneSets <- geneSets[geneSets$gene_symbol %in% names(sce),]
-m_list <- geneSets %>% split(x = .$gene_symbol, f = .$gs_name)
-stats <- assocRes$waldStat_lineage1_conditionMock
-names(stats) <- rownames(assocRes)
-eaRes <- fgsea(pathways = m_list, stats = stats, nperm = 5e4, minSize = 10)
-ooEA <- order(eaRes$pval, decreasing = FALSE)
-kable(head(eaRes[ooEA, 1:3], n = 20))
+```{r fig.height=8}
+g1 <- visualiseDim(sce_citeseq, dimNames = "tSNE_joint", 
+                   colour_by = "hg19_CD8A",
+                   data_from = "assay",
+                   assay_name = "logcounts") +
+  labs(title = "tSNE: hg19_CD8A (RNA expression)")
+g2 <- visualiseDim(sce_citeseq,dimNames = "tSNE_joint", 
+                   colour_by = "CD8",
+                   data_from = "altExp",
+                   altExp_assay_name = "logcounts") +
+  labs(title = "tSNE: CD8 (ADT expression)")
+grid.arrange(g1, g2, ncol = 2)
 ```
 
 
-### Differential expression between conditions
+### Louvain clustering
 
-In the following sections, we will investigate differential expression for each gene, between the two conditions.
+As well as spectral clustering, CiteFuse can implement Louvain clustering if users wish to use another clustering method. We use the `igraph` package, and any community detection algorithms available in their package can be selected by changing the `method` parameter. 
 
-We will first make exploratory data analysis visualizations to take a look at the expression patterns of genes that were also discussed in the original manuscript.
-The paper mentions that CDH1 and CRB3 should be expressed in similar kinetics.
-Note that the lower slope of CDH1 is also observed in the paper.
-
-```{r, eval=TRUE}
-plotSmoothers(sce, assays(sce)$counts, gene = "CDH1", alpha = 1, border = TRUE) + ggtitle("CDH1")
-plotSmoothers(sce, assays(sce)$counts, gene = "CRB3", alpha = 1, border = TRUE) + ggtitle("CRB3")
+```{r fig.height=8, fig.width=8}
+SNF_W_louvain <- igraphClustering(sce_citeseq, method = "louvain")
+table(SNF_W_louvain)
+sce_citeseq$SNF_W_louvain <- as.factor(SNF_W_louvain)
+visualiseDim(sce_citeseq, dimNames = "tSNE_joint", colour_by = "SNF_W_louvain") +
+  labs(title = "tSNE (SNF louvain clustering)")
 ```
 
-They also mention that 'only cells treated with TGF-Beta and positioned at the outer extreme of the trajectory expressed robust levels of FN1 and CDH2'.
 
-```{r, eval=TRUE}
-plotSmoothers(sce, assays(sce)$counts, gene = "FN1", alpha = 1, border = TRUE) + ggtitle("FN1")
-plotSmoothers(sce, assays(sce)$counts, gene = "CDH2", alpha = 1, border = TRUE) + ggtitle("CDH2")
+```{r fig.height = 6, fig.width = 6}
+visualiseKNN(sce_citeseq, colour_by = "SNF_W_louvain")
 ```
 
-#### Differential expression analysis
 
-To test differential expression between conditions, we use the `conditionTest` function implemented in `tradeSeq`. 
-This function tests the null hypothesis that genes have identical expression patterns in each condition.
-We discover $1993$ genes that are DE with a fold change higher than $2$ or lower than $1/2$.
+## Differential Expression Analysis
 
-```{r, eval=TRUE}
-condRes <- conditionTest(sce, l2fc = log2(2))
-condRes$padj <- p.adjust(condRes$pvalue, "fdr")
-mean(condRes$padj <= 0.05, na.rm = TRUE)
-sum(condRes$padj <= 0.05, na.rm = TRUE)
-conditionGenes <- rownames(condRes)[condRes$padj <= 0.05]
-conditionGenes <- conditionGenes[!is.na(conditionGenes)]
+### Exploration of feature expression 
+
+CiteFuse has a wide range of visualisation tools to facilitate exploratory analysis of CITE-seq data. The `visualiseExprs` function is an easy-to-use function to generate boxplots, violinplots, jitter plots, density plots, and pairwise scatter/density plots of genes and proteins expressed in the data. The plots can be grouped by using the cluster labels stored in the `sce_citeseq` object. 
+
+```{r fig.height = 4, fig.width = 8}
+visualiseExprs(sce_citeseq, 
+               plot = "boxplot", 
+               group_by = "SNF_W_louvain",
+               feature_subset = c("hg19_CD2", "hg19_CD4", "hg19_CD8A", "hg19_CD19"))
+visualiseExprs(sce_citeseq, 
+               plot = "violin", 
+               group_by = "SNF_W_louvain",
+               feature_subset = c("hg19_CD2", "hg19_CD4", "hg19_CD8A", "hg19_CD19"))
+visualiseExprs(sce_citeseq, 
+               plot = "jitter", 
+               group_by = "SNF_W_louvain",
+               feature_subset = c("hg19_CD2", "hg19_CD4", "hg19_CD8A", "hg19_CD19"))
+visualiseExprs(sce_citeseq, 
+               plot = "density", 
+               group_by = "SNF_W_louvain",
+               feature_subset = c("hg19_CD2", "hg19_CD4", "hg19_CD8A", "hg19_CD19"))
 ```
 
-#### Visualize most and least significant gene
 
-```{r, eval=TRUE}
-# plot genes
-oo <- order(condRes$waldStat, decreasing = TRUE)
-# most significant gene
-plotSmoothers(sce, assays(sce)$counts,
-              gene = rownames(assays(sce)$counts)[oo[1]],
-              alpha = 1, border = TRUE)
-# least significant gene
-plotSmoothers(sce, assays(sce)$counts,
-              gene = rownames(assays(sce)$counts)[oo[nrow(sce)]],
-              alpha = 1, border = TRUE)
+
+
+
+```{r fig.height = 4, fig.width = 6}
+visualiseExprs(sce_citeseq, 
+               altExp_name = "ADT", 
+               group_by = "SNF_W_louvain",
+               plot = "violin", n = 5)
+visualiseExprs(sce_citeseq, altExp_name = "ADT", 
+               plot = "jitter", 
+               group_by = "SNF_W_louvain", 
+               feature_subset = c("CD2", "CD8", "CD4", "CD19"))
+visualiseExprs(sce_citeseq, altExp_name = "ADT", 
+               plot = "density", 
+               group_by = "SNF_W_louvain",
+               feature_subset = c("CD2", "CD8", "CD4", "CD19"))
 ```
 
-### Heatmaps of genes DE between conditions
 
-Below we show heatmaps of the genes DE between conditions. The DE genes in the heatmaps are ordered according to a hierarchical clustering on the TGF-Beta condition.
 
-```{r, eval=TRUE}
-### based on mean smoother
-yhatSmooth <- predictSmooth(sce, gene = conditionGenes, nPoints = 50, tidy = FALSE)
-heatSmooth_TGF <- pheatmap(t(scale(t(yhatSmooth[, 51:100]))),
-  cluster_cols = FALSE,
-  show_rownames = FALSE, show_colnames = FALSE, main = "TGF-Beta", legend = FALSE,
-  silent = TRUE
-)
-matchingHeatmap_mock <- pheatmap(t(scale(t(yhatSmooth[heatSmooth_TGF$tree_row$order, 1:50]))),
-  cluster_cols = FALSE, cluster_rows = FALSE,
-  show_rownames = FALSE, show_colnames = FALSE, main = "Mock",
-  legend = FALSE, silent = TRUE
-)
-grid.arrange(heatSmooth_TGF[[4]], matchingHeatmap_mock[[4]], ncol = 2)
+
+```{r fig.height = 4, fig.width = 8}
+visualiseExprs(sce_citeseq, altExp_name = "ADT", 
+               plot = "pairwise", 
+               feature_subset = c("CD4", "CD8"))
+visualiseExprs(sce_citeseq, altExp_name = "ADT", 
+               plot = "pairwise", 
+               feature_subset = c("CD45RA", "CD4", "CD8"), 
+               threshold = rep(4, 3))
 ```
 
-### Gene set enrichment analysis
 
-Gene set enrichment analysis on genes that are differentially expressed between conditions finds evidence for cell motility, cell junctions/adhesion and gastrulation. The original paper also focuses on the KRAS signaling pathway, which induces cell migration, amongst others.
-Other related processes include morphogenesis, gastrulation and cell adhesion.
+## Perform DE Analysis with Wilcoxon Rank Sum test
 
-```{r, eval=TRUE}
-statsCond <- condRes$waldStat
-names(statsCond) <- rownames(condRes)
-eaRes <- fgsea(pathways = m_list, stats = statsCond, nperm = 5e4, minSize = 10)
-ooEA <- order(eaRes$pval, decreasing = FALSE)
-kable(head(eaRes[ooEA, 1:3], n = 20))
+CiteFuse also calculates differentially expressed (DE) genes through the `DEgenes` function. The cluster grouping to use must be specified in the `group` parameter. If `altExp_name` is not specified, RNA expression will be used as the default expression matrix. 
+
+Results form the DE analysis is stored in `sce_citeseq` as `DE_res_RNA_filter` and `DE_res_ADT_filter` for RNA and ADT expression, respectively.
+
+### For RNA expression
+
+```{r}
+# DE will be performed for RNA if altExp_name = "none" 
+sce_citeseq <- DEgenes(sce_citeseq,
+                       altExp_name = "none", 
+                       group = sce_citeseq$SNF_W_louvain,
+                       return_all = TRUE,
+                       exprs_pct = 0.5)
+sce_citeseq <- selectDEgenes(sce_citeseq,
+                             altExp_name = "none")
+datatable(format(do.call(rbind, metadata(sce_citeseq)[["DE_res_RNA_filter"]]), 
+                 digits = 2))
 ```
+
+### For ADT count
+```{r}
+sce_citeseq <- DEgenes(sce_citeseq,
+                       altExp_name = "ADT", 
+                       group = sce_citeseq$SNF_W_louvain,
+                       return_all = TRUE,
+                       exprs_pct = 0.5)
+sce_citeseq <- selectDEgenes(sce_citeseq,
+                             altExp_name = "ADT")
+datatable(format(do.call(rbind, metadata(sce_citeseq)[["DE_res_ADT_filter"]]), 
+                 digits = 2))
+```
+
+
+## Visualising DE Results
+
+The DE genes can be visualised with the `DEbubblePlot` and `DEcomparisonPlot`. In each case, the gene names must first be extracted from the DE result objects. 
+
+### circlepackPlot
+
+The `circlepackPlot` takes a list of all DE genes from RNA and ADT DE analysis and will plot only the top most significant DE genes to plot. 
+
+```{r fig.height = 10, fig.width = 10}
+rna_DEgenes <- metadata(sce_citeseq)[["DE_res_RNA_filter"]]
+adt_DEgenes <- metadata(sce_citeseq)[["DE_res_ADT_filter"]]
+rna_DEgenes <- lapply(rna_DEgenes, function(x){
+  x$name <- gsub("hg19_", "", x$name)
+  x})
+DEbubblePlot(list(RNA = rna_DEgenes, ADT = adt_DEgenes))
+```
+
+
+### DEcomparisonPlot
+
+For the `DEcomparisonPlot`, as well as a list containing the DE genes for RNA and ADT, a `feature_list` specifying the genes and proteins of interest is required.
+
+```{r fig.height = 8, fig.width = 8}
+rna_list <- c("hg19_CD4",
+              "hg19_CD8A",
+              "hg19_HLA-DRB1",
+              "hg19_ITGAX",
+              "hg19_NCAM1",
+              "hg19_CD27",
+              "hg19_CD19")
+adt_list <- c("CD4", "CD8", "MHCII (HLA-DR)", "CD11c", "CD56", "CD27", "CD19")
+rna_DEgenes_all <- metadata(sce_citeseq)[["DE_res_RNA"]]
+adt_DEgenes_all <- metadata(sce_citeseq)[["DE_res_ADT"]]
+feature_list <- list(RNA = rna_list, ADT = adt_list)
+de_list <- list(RNA = rna_DEgenes_all, ADT = adt_DEgenes_all)
+DEcomparisonPlot(de_list = de_list,
+                 feature_list = feature_list)
+```
+
+
+## ADT Importance Evaluation
+
+An important evaluation in CITE-seq data analysis is to assess the quality of each ADT and to evaluate the contribution of ADTs towards clustering outcome. CiteFuse calculates the relative importance of ADT towards clustering outcome by using a random forest model. The higher the score of an ADT, the greater its importance towards the final clustering outcome. 
+
+```{r fig.height = 8, fig.width = 8}
+set.seed(2020)
+sce_citeseq <- importanceADT(sce_citeseq, 
+                             group = sce_citeseq$SNF_W_louvain,
+                             subsample = TRUE)
+visImportance(sce_citeseq, plot = "boxplot")
+visImportance(sce_citeseq, plot = "heatmap")
+sort(metadata(sce_citeseq)[["importanceADT"]], decreasing = TRUE)[1:20]
+```
+
+The importance scores can be visualised in a boxplot and heatmap. Our evaluation of ADT importance show that unsurprisingly CD4 and CD8 are the top two discriminating proteins in PBMCs. 
+
+
+Let us try clustering with only ADTs with a score greater than 5.
+
+```{r}
+subset_adt <- names(which(metadata(sce_citeseq)[["importanceADT"]] > 5))
+subset_adt
+system.time(sce_citeseq <- CiteFuse(sce_citeseq,
+                                    ADT_subset = subset_adt,
+                                    metadata_names = c("W_SNF_adtSubset1",
+                                                       "W_ADT_adtSubset1",
+                                                       "W_RNA")))
+SNF_W_clust_adtSubset1 <- spectralClustering(metadata(sce_citeseq)[["W_SNF_adtSubset1"]], K = 5)
+sce_citeseq$SNF_W_clust_adtSubset1 <- as.factor(SNF_W_clust_adtSubset1$labels)
+library(mclust)
+adjustedRandIndex(sce_citeseq$SNF_W_clust_adtSubset1, sce_citeseq$SNF_W_clust)
+```
+
+When we compare between the two clustering outcomes, we find that the adjusted rand index is approximately 0.93, where a value of 1 denotes complete concordance. 
+
+## Gene - ADT network
+
+The `geneADTnetwork` function plots an interaction network between genes identified from the DE analysis. The nodes denote proteins and RNA whilst the edges denote positive and negative correlation in expression. 
+
+```{r fig.height = 8, fig.width = 8}
+RNA_feature_subset <- unique(as.character(unlist(lapply(rna_DEgenes_all, "[[", "name"))))
+ADT_feature_subset <- unique(as.character(unlist(lapply(adt_DEgenes_all, "[[", "name"))))
+geneADTnetwork(sce_citeseq,
+               RNA_feature_subset = RNA_feature_subset,
+               ADT_feature_subset = ADT_feature_subset,
+               cor_method = "pearson",
+               network_layout = igraph::layout_with_fr)
+```
+
+
+## RNA Ligand - ADT Receptor Analysis
+
+With the advent of CITE-seq, we can now predict ligand-receptor interactions by using cell surface protein expression. CiteFuse implements a `ligandReceptorTest` to find ligand receptor interactions between sender and receiver cells. Importantly, the ADT count is used to predict receptor expression within receiver cells. Note that the setting `altExp_name = "RNA"` would enable users to predict ligand-receptor interaction from RNA expression only.  
+
+```{r}
+data("lr_pair_subset", package = "CiteFuse")
+head(lr_pair_subset)
+sce_citeseq <- normaliseExprs(sce = sce_citeseq, 
+                              altExp_name = "ADT", 
+                              transform = "zi_minMax")
+sce_citeseq <- normaliseExprs(sce = sce_citeseq, 
+                              altExp_name = "none", 
+                              exprs_value = "logcounts",
+                              transform = "minMax")
+sce_citeseq <- ligandReceptorTest(sce = sce_citeseq,
+                                  ligandReceptor_list = lr_pair_subset,
+                                  cluster = sce_citeseq$SNF_W_louvain,
+                                  RNA_exprs_value = "minMax",
+                                  use_alt_exp = TRUE,
+                                  altExp_name = "ADT",
+                                  altExp_exprs_value = "zi_minMax",
+                                  num_permute = 1000) 
+```
+
+
+
+```{r fig.height=10, fig.width=8}
+visLigandReceptor(sce_citeseq, 
+                  type = "pval_heatmap",
+                  receptor_type = "ADT")
+```
+
+
+```{r fig.height=12, fig.width=6}
+visLigandReceptor(sce_citeseq, 
+                  type = "pval_dotplot",
+                  receptor_type = "ADT")
+```
+
+
+```{r fig.height=8, fig.width=8}
+visLigandReceptor(sce_citeseq, 
+                  type = "group_network",
+                  receptor_type = "ADT")
+```
+
+
+```{r fig.height=8, fig.width=8}
+visLigandReceptor(sce_citeseq, 
+                  type = "group_heatmap",
+                  receptor_type = "ADT")
+```
+
+
+```{r fig.height=8, fig.width=8}
+visLigandReceptor(sce_citeseq,
+                  type = "lr_network",
+                  receptor_type = "ADT")
+```
+
+## Between-sample analysis 
+
+Lastly, we will jointly analyse the current PBMC CITE-seq data, taken from healthy human donors, and another subset of CITE-seq data from patients with cutaneous T-cell lymphoma (CTCL), again from Mimitou et al. (2019). The data `sce_ctcl_subset` provided in our `CiteFuse` package already contains the clustering information.
+
+```{r}
+data("sce_ctcl_subset", package = "CiteFuse")
+```
+
+
+To visualise and compare gene or protein expression data, we can use `visualiseExprsList` function.
+
+```{r}
+visualiseExprsList(sce_list = list(control = sce_citeseq,
+                                   ctcl = sce_ctcl_subset),
+                   plot = "boxplot",
+                   altExp_name = "none",
+                   exprs_value = "logcounts",
+                   feature_subset = c("hg19_S100A10", "hg19_CD8A"),
+                   group_by = c("SNF_W_louvain", "SNF_W_louvain"))
+visualiseExprsList(sce_list = list(control = sce_citeseq,
+                                   ctcl = sce_ctcl_subset),
+                   plot = "boxplot",
+                   altExp_name = "ADT", 
+                   feature_subset = c("CD19", "CD8"),
+                   group_by = c("SNF_W_louvain", "SNF_W_louvain"))
+```
+
+
+We can then perform differential expression analysis of the RNA expression level across the two clusters that have high CD19 expression in ADT.
+
+```{r}
+de_res <- DEgenesCross(sce_list = list(control = sce_citeseq,
+                                       ctcl = sce_ctcl_subset),
+                       colData_name = c("SNF_W_louvain", "SNF_W_louvain"),
+                       group_to_test = c("2", "6"))
+de_res_filter <- selectDEgenes(de_res = de_res)
+de_res_filter
+```
+
+
+## Application of CiteFuse on ASAP-seq
+
 
 
 # Final notes
