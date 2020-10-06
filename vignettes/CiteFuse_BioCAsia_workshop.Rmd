@@ -1,6 +1,6 @@
 ---
 title: "CiteFuse"
-author: Hani Jieun Kim and Yingxin Lin^[hani.kim@sydney.edu.au]
+author: Yingxin Lin and Hani Jieun Kim^[hani.kim@sydney.edu.au]
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{CiteFuse}
@@ -18,18 +18,12 @@ knitr::opts_chunk$set(
 
 # Workshop Title
 
-Authors:
-    Hani Jieun Kim^[University of Sydney],
-    Yingxin Lin^[University of Sydney].
-    <br/>
-Last modified: 7 Oct, 2020.
-
 ## Overview
 
 ### Instructors and contact information
 
-- Hani Jieun Kim (hani.kim@sydney.edu.au)
 - Yingxin Lin (yingxin.lin@sydney.edu.au)
+- Hani Jieun Kim (hani.kim@sydney.edu.au)
 
 ### Description
 
@@ -136,6 +130,11 @@ lapply(CITEseq_example, dim)
 ```
 
 Here, we start from a list of three matrices of unique molecular identifier (UMI), antibody derived tags (ADT) and hashtag oligonucleotide (HTO) count, which have common cell names. There are 500 cells in our subsetted dataset. And characteristically of CITE-seq data, the matrices are matched, meaning that for any given cell we know the expression level of their RNA transcripts (genome-wide) and its corresponding cell surface protein expression. The `preprocessing` function will utilise the three matrices and its common cell names to create a `SingleCellExperiment` object, which stores RNA data in an `assay` and `ADT` and `HTO` data within in the `altExp` slot.
+
+```{r}
+sce_citeseq <- preprocessing(CITEseq_example)
+sce_citeseq
+```
 
 ## Doublet detection using `CiteFuse`
 
