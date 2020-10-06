@@ -1,0 +1,467 @@
+---
+title: "CiteFuse"
+author: Hani Jieun Kim and Yingxin Lin^[hani.kim@sydney.edu.au]
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{An Example Workshop}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# Workshop Title
+
+Authors:
+    Hani Jieun Kim^[University of Sydney],
+    Yingxin Lin^[University of Sydney].
+    <br/>
+Last modified: 7 Oct, 2020.
+
+## Overview
+
+### Instructors and contact information
+
+- Hani Jieun Kim (hani.kim@sydney.edu.au)
+- Yingxin Lin (yingxin.lin@sydney.edu.au)
+
+### Description
+
+The latest breakthrough in single-cell omics is on multi-modal profiling of different biomolecule species in individual cells. Among the fast evolving biotechnologies developed for multi-modal profiling, cellular indexing of transcriptomes and epitopes by sequencing (CITE-seq) is attracting attention, especially in the field of immunology, given its ability to simultaneously quantify global gene expression and cellular proteins using RNA-sequencing and antibody-derived tags (ADTs) on single cells. While the additional protein marker information brought about by ADTs is extremely valuable, new biological insights can only be gained by developing analytic methods that fully take advantage of the complementarity between mRNA and ADT expression measured in CITE-seq.
+
+To address this, we developed a streamlined pipeline–CiteFuse–that consists of a suite of tools for the integration and the downstream analysis of CITE-seq data. In this workshop, we will provide a hands-on experience to the CiteFuse package and cover all the steps including doublet detection, modality integration, cell type clustering, differential RNA and ADT expression analysis, ADT evaluation, and ligand–receptor interaction analysis on a publicly available CITE-seq dataset. We also demonstrate the applicability of CiteFuse package on other multi-modal data types by applying our pipeline on the recently developed ASAP-seq data. 
+
+[This vignette](https://sydneybiox.github.io/CiteFuse/articles/CiteFuse.html) provides a more complete description of the various tools in CiteFuse and will serve as the basis of our workshop.
+
+### Pre-requisites
+
+Software:
+
+* Basic knowledge of R syntax
+* Familiarity with single-cell RNA-sequencing
+* Familiarity with the `SingleCellExperiment` class
+
+Background reading:
+
+* The textbook "Orchestrating Single-Cell Analysis with Bioconductor" is a great reference for single-cell analysis using Bioconductor packages.
+* [CiteFuse enables multi-modal analysis of CITE-seq data](https://academic.oup.com/bioinformatics/article-abstract/36/14/4137/5827474?redirectedFrom=fulltext)
+* [Simultaneous epitope and transcriptome measurement in single cells](https://www.nature.com/articles/nmeth.4380)
+
+### Participation
+
+Participants will learn how 
+
+### _R_ / _Bioconductor_ packages used
+
+* This workshop will focus on Bioconductor packages [SingleCellExperiment] (https://bioconductor.org/packages/release/bioc/html/SingleCellExperiment.html) and  [CiteFuse](https://academic.oup.com/bioinformatics/article-abstract/36/14/4137/5827474?redirectedFrom=fulltext). 
+
+### Time outline
+
+An example for a 45-minute workshop:
+
+| Activity                            | Time |
+|-------------------------------------|------|
+| Introduction                        | 15m  |
+| Data processing and integration     | 15m  |
+| Downstream analysis                 | 15m  |
+| Application of CiteFuse on ASAP-seq | 5m   |
+| Wrap-up and Conclusions             | 5m   |
+
+### Workshop goals and objectives
+
+List "big picture" student-centered workshop goals and learning
+objectives. Learning goals and objectives are related, but not the
+same thing. These goals and objectives will help some people to decide
+whether to attend the conference for training purposes, so please make
+these as precise and accurate as possible.
+
+*Learning goals* are high-level descriptions of what
+participants will learn and be able to do after the workshop is
+over. *Learning objectives*, on the other hand, describe in very
+specific and measurable terms specific skills or knowledge
+attained. The [Bloom's Taxonomy](#bloom) may be a useful framework
+for defining and describing your goals and objectives, although there
+are others.
+
+### Learning goals
+
+Some examples:
+
+* describe how to...
+* identify methods for...
+* understand the difference between...
+
+### Learning objectives
+
+* analyze xyz data to produce...
+* create xyz plots
+* evaluate xyz data for artifacts
+
+# Analysis
+
+## The dataset
+
+The dataset we will be working with concerns a single-cell RNA-sequencing dataset consisting of two different experiments, which correspond to two treatments. [McFaline-Figueroa et al.](https://www.nature.com/articles/s41588-019-0489-5) studied the epithelial-to-mesenchymal transition (EMT), where cells spatially migrate from the epithelium to the mesenchyme during development. This process will be described by a trajectory, reflecting the gene expression changes occurring during this migration. The authors furthermore studied both a control (`Mock`) condition, and a condition in the absence of transforming growth factor $\beta$ (TGFB).
+
+In summary, we will be investigating a trajectory consisting of a single lineage that represents the EMT. This lineage is studied in two different conditions; a control condition and a TGFB-absent condition.
+
+## Doublet detection
+
+
+## Integration
+
+Our dataset contains cells collected from samples undergoing two different treatment conditions which were necessarily collected separately. Hence, we will start with an integration step to combine these two sets of cells, similar to batch correction. Our goal is to remove the technical effects of the different sample collections while preserving any true, biological differences between the two treatment groups.
+
+Data integration and normalization are complex problems and there are a variety of methods addressing each. Interested participants can explore [the corresponding chapter of the Bioconductor Ebook](https://osca.bioconductor.org/integrating-datasets.html). However, since neither is the main focus of this workshop, we elected to use an existing pipeline for these tasks. The full Seurat data integration workflow with SCTransform normalization is described in [this vignette](https://satijalab.org/seurat/v3.1/integration.html).
+
+Since this whole step is quite slow, it will not be run during the workshop but the code is provided below, along with a function to download and preprocess the public data from GEO.
+
+```{r integration, eval=FALSE}
+
+```
+
+## Import dataset
+
+We have made the pre-processed, integrated dataset available as a `SingleCellExperiment` object in the workshop package, which we import below.
+
+```{r}
+data("sce", package = "bioc2020trajectories")
+```
+
+
+## Differential Topology
+
+Once the two datasets have been integrated, we can visualize all the single cells in a shared reduced dimensional space. 
+We also visualize the distribution of cells in this space according to the treatment (control and TGFB) and spatial location (inner cells versus outer cells).
+
+
+```{r compute scores, eval = TRUE, fig.width=7}
+shuffle <- sample(ncol(sce))
+layout(matrix(1:2, nrow = 1))
+par(mar = c(4.5,4,1,1))
+plot(reducedDims(sce)$UMAP[shuffle, ],
+  asp = 1, pch = 16, xlab = "UMAP-1", ylab = "UMAP-2",
+  col = alpha(c(1:2)[factor(colData(sce)$pheno$treatment_id)][shuffle], alpha = .5))
+legend("topright", pch = 16, col = 1:2, bty = "n", 
+       legend = levels(factor(colData(sce)$pheno$treatment_id)))
+plot(reducedDims(sce)$UMAP[shuffle, ], asp = 1, pch = 16, xlab = "UMAP-1", ylab = "UMAP-2", 
+     col = alpha(c(3, 4)[factor(colData(sce)$pheno$spatial_id)][shuffle], alpha = .5))
+legend("topright", pch = 16, col = 3:4, bty = "n", legend = levels(factor(colData(sce)$pheno$spatial_id)))
+layout(1)
+par(mar = c(5, 4, 4, 2) + .1)
+```
+
+
+We know from biological knowledge that the EMT development goes from the inner to the outer cells. The question is: should we fit a separate trajectory for each condition? We might expect the trajectory itself to be changed by the treatment if the treatment effect is systematically large. Otherwise, the treatment may impact the expression profile of some genes but the overall trajectory will be preserved. 
+
+To help assess this, we devised an imbalance score. Regions with a high score indicate that the local cell distribution according to treatment label is unbalanced compared the overall distribution. Here, we see that, while there are some small regions of imbalance, the global path along the development axis is well-balanced. This means that we can fit a global trajectory to the full dataset. This choice allows us to use the maximal amount of data in the construction of our trajectory, which should lead to more robust results than separate, potentially noisy trajectories constructed on subsets of the data. As we will see, not all cell types are necessarily present in every condition, so this approach ensures that our trajectory accounts for all cell types present in the overall data. 
+
+```{r, eval = TRUE}
+scores <- bioc2020trajectories::imbalance_score(
+  rd = reducedDims(sce)$UMAP, 
+  cl = colData(sce)$pheno$treatment_id,
+  k = 20, smooth = 40)
+grad <- viridis::plasma(10, begin = 0, end = 1)
+names(grad) <- levels(cut(scores$scaled_scores, breaks = 10))
+plot(reducedDims(sce)$UMAP, col = grad[cut(scores$scaled_scores, breaks = 10)],
+     asp = 1, pch = 16, xlab = "UMAP-1", ylab = "UMAP-2", cex = .8)
+legend("topleft", legend = names(grad), col = grad, pch = 16, bty = "n", cex = 2 / 3)
+```
+
+For more information on the score, run `help("imbalance_score", "bioc2020trajectories")`
+
+## Trajectory Inference
+
+We perform trajectory inference to order the cells according to EMT progression. We  use `slingshot` for trajectory inference, with the cells' position (inner or outer) serving as the cluster identifier. This ensures that we will only find a single lineage while still allowing sufficient flexibility to correctly orient the pseudotime axis.
+
+Note that we perform trajectory inference using cells from both conditions, rather than splitting the data into two groups, as discussed above. 
+
+```{r slingshot, eval = TRUE}
+library(slingshot)
+sce <- slingshot(sce, reducedDim = 'UMAP', clusterLabels = colData(sce)$pheno$spatial_id,
+                 start.clus = 'inner', approx_points = 150)
+```
+
+
+```{r plotSlingshot, echo = FALSE, fig.width =  8}
+layout(matrix(c(1, 1, 2, 3), 2))
+par(mar = c(4.5, 4, 1, 1))
+plot(reducedDims(sce)$UMAP[shuffle, ], asp = 1, pch = 16, xlab = "UMAP-1", ylab = "UMAP-2",
+  col = hcl.colors(100, alpha = .5)[cut(sce$slingPseudotime_1, breaks = 100)][shuffle])
+lines(SlingshotDataSet(sce))
+# Pseudotime densities (by spatial)
+ds <- list( Inner = density(slingPseudotime(sce)[colData(sce)$pheno$spatial_id == "inner", 1]),
+            Outer = density(slingPseudotime(sce)[colData(sce)$pheno$spatial_id == "outer", 1]))
+xlim <- range(c(ds$Inner$x, ds$Outer$x))
+ylim <- range(c(ds$Inner$y, ds$Outer$y))
+plot(xlim, ylim, col = "white", xlab = "Pseudotime", ylab = "")
+polygon(c(min(ds$Inner$x), ds$Inner$x, max(ds$Inner$x)), c(0, ds$Inner$y, 0),
+  col = alpha(brewer.pal(4, "Set1")[3], alpha = .5))
+polygon(c(min(ds$Outer$x), ds$Inner$x, max(ds$Inner$x)), c(0, ds$Outer$y, 0),
+        col = alpha(brewer.pal(4, "Set1")[2], alpha = .5))
+legend("topleft", legend = c("Inner", "Outer"), 
+       fill = alpha(brewer.pal(4, "Set1")[3:2], alpha = .5), bty = "n")
+plot(reducedDims(sce)$UMAP[shuffle, ], asp = 1, pch = 16, xlab = "UMAP-1", ylab = "UMAP-2", 
+     col = alpha(c(3, 4)[factor(colData(sce)$pheno$spatial_id)][shuffle], alpha = .5))
+lines(SlingshotDataSet(sce), type = 'lineages', show.constraints = TRUE)
+legend("topright", pch = 16, col = 3:4, bty = "n", legend = levels(factor(colData(sce)$pheno$spatial_id)))
+layout(1)
+par(mar = c(5, 4, 4, 2) + .1)
+```
+
+## Differential progression
+
+Now that we have ordered the cells by EMT progression, we can begin to address the main question: how is this progression affected by TGF-$\beta$ treatment? In this section, we interpret this question as a univariate analysis of the pseudotime values between the two groups.
+
+```{r plotDensities, echo=FALSE, fig.height=4}
+# Pseudotime densities (by treatment)
+ds <- list(Mock = density(slingPseudotime(sce)[colData(sce)$pheno$treatment_id == "Mock", 1]),
+           TGFB = density(slingPseudotime(sce)[colData(sce)$pheno$treatment_id == "TGFB", 1]))
+xlim <- range(c(ds$Mock$x, ds$TGFB$x))
+ylim <- range(c(ds$Mock$y, ds$TGFB$y))
+plot(xlim, ylim, col = "white", xlab = "Pseudotime", ylab = "")
+polygon(c(min(ds$Mock$x),ds$Mock$x,max(ds$Mock$x)),
+		c(0,ds$Mock$y,0), col = rgb(0,0,0,.5))
+polygon(c(min(ds$TGFB$x),ds$Mock$x,max(ds$Mock$x)),
+		c(0,ds$TGFB$y,0), col = alpha(brewer.pal(4,'Set1')[1], alpha = .5))
+legend("topright", legend = c("Mock", "TGFB"), 
+       fill = alpha(c(1, brewer.pal(3, "Set1")[1]), alpha = .5), bty = "n")
+```
+
+The density estimates for the two groups show a trimodal distribution for the untreated cells, but a tendency toward later pseudotime values in the TGF-$\beta$ treated cells. The difference is striking enough that a standard T-test would likely be significant, but we are we are interested more generally in differences between the two distributions, not just the difference of means (one could imagine a scenario in which the treated group tended toward the extremes, but the means were the same). Hence, we propose a Kolmogorov-Smirnov Test to assess whether the two groups of pseudotime values are derived from the same distribution. For more info on the Kolmogorov-Smirnov Test, see [here](https://en.wikipedia.org/wiki/Kolmogorov%E2%80%93Smirnov_test).
+
+```{r KStest, eval = FALSE}
+########################
+### Kolmogorov-Smirnov Test
+########################
+ks.test(slingPseudotime(sce)[colData(sce)$pheno$treatment_id == "Mock", 1],
+        slingPseudotime(sce)[colData(sce)$pheno$treatment_id == "TGFB", 1])
+```
+
+As we might expect from the plot, this test is highly significant, so we can conclude that there are differences between the two distributions.
+
+## Differential expression
+
+We will now proceed to discover genes whose expression is associated with the inferred trajectory. We will look for genes that (i) change in gene expression along the trajectory, and (ii) are differentially expressed between the two conditions along the trajectory. The differential expression analysis uses the Bioconductor package `tradeSeq`. This analysis relies on a new version of `tradeSeq`, which can be installed from the [conditions branch](https://github.com/statOmics/tradeSeq/tree/conditions) on GitHub.
+
+For each condition (i.e., control and TGF-Beta), a smooth average expression profile along pseudotime will be estimated for each gene, using a negative binomial generalized additive model (NB-GAM).
+Each differential expression hypothesis of interest will then be translated into testing specific features (a linear combination of the parameters) of this smoothed expression estimate. 
+
+The next two paragraphs can be time-consuming so we will not run them during the workshop, however, their output is already present in the data object that was loaded at the start of this workshop. They can be easily parallelized, relying on the `BiocParallel` bioconductor package. See [here](https://statomics.github.io/tradeSeq/articles/fitGAM.html#parallel-computing-1) for more details.
+
+### Select number of knots
+
+Before we can fit these smoothed expression profiles, we need to get a sense of how complex the expression patterns are in this dataset. This is translated into selecting a number of knots for the NB-GAMs, where a higher number of knots allows for more complex expression patterns. Here, we pick $5$ knots.
+
+See [here](https://people.maths.bris.ac.uk/~sw15190/mgcv/) for more information on smoothers.
+
+```{r evaluateK, eval=FALSE}
+library(tradeSeq)
+set.seed(3)
+icMat <- evaluateK(counts = as.matrix(assays(sce)$counts),
+                   pseudotime = colData(sce)$slingshot$pseudotime,
+                   cellWeights = colData(sce)$slingshot$cellWeights.V1,
+                   conditions = factor(colData(sce)$pheno$treatment_id),
+                   nGenes = 300,
+                   k = 3:7)
+```
+
+```{r, echo=FALSE}
+knitr::include_graphics("../data/evaluateKResult.png")
+```
+
+The plot above shows the graphical output from running `evaluateK`. The left panel shows the distribution of gene-level AIC values as compared to their average AIC over the range of `k`. The second and third panel plot the average AIC and relative AIC with respect to the lowest value of `k` (i.e., 3), respectively, as a function of `k`. Finally, the right panel plots the number of genes whose AIC is lowest at a particular value of `k`.
+
+Choosing an appropriate value of `k` can be seen as analogous to choosing the number of principal components based on a scree plot: we look for an 'elbow point', where the decrease starts attenuating. Here, we choose `k=5` to allow for flexible, yet simple, functions while limiting the computational burden. In general, we found the influence of choosing the exact value of `k` to be rather limited, unless `k` is arbitrarily small or large. In our evaluations, most datasets fall within the range of $4$ to $8$ knots.
+
+### Fit GAM
+
+Next, we fit the NB-GAMs using 5 knots, based on the pseudotime and cell-level weights estimated by Slingshot. We use the `conditions` argument to fit separate smoothers for each condition.
+
+```{r, eval=FALSE}
+set.seed(3)
+sce <- fitGAM(counts = as.matrix(assays(sce)$counts),
+              pseudotime = colData(sce)$slingshot$pseudotime,
+              cellWeights = colData(sce)$slingshot$cellWeights.V1,
+              conditions = factor(colData(sce)$pheno$treatment_id),
+              nknots = 5)
+mean(rowData(sce)$tradeSeq$converged)
+```
+
+
+### Assess DE along pseudotime (or pseudospace)
+
+Note that the axis represented by the trajectory in this dataset is actually the migration of cells from the epithelium to the mesenchyme and therefore could also be looked at as a space dimension, although it is likely to be correlated with chronological time, too.
+
+To assess significant changes in gene expression as a function of pseudotime within each lineage, we use the `associationTest`, which tests the null hypothesis that gene expression is not a function of pseudotime, i.e., whether the estimated smoothers are significantly varying as a function of pseudotime within each lineage. The `lineages=TRUE` argument specifies that we would like the results for each lineage separately, asides from the default global test, which tests for significant associations across all lineages in the trajectory simultaneously. Further, we specify a log2 fold change cut-off to test against using the `l2fc` argument. 
+
+On a lineage-specific basis, there are over twice as much DE genes in the mock lineage (2398) as compared to the TGFB lineage (1013). Many of the DE genes in the TGFB condition are also DE in the mock condition, around 80%. 
+
+The authors of the original paper found $1105$ DE genes for the mock condition on a FDR level of $1e-10$ and a cut-off of 1 on the absolute value of the log2 fold change.
+
+
+```{r, eval=TRUE}
+library(tradeSeq)
+assocRes <- associationTest(sce, lineages = TRUE, l2fc = log2(2))
+mockGenes <-  rownames(assocRes)[
+  which(p.adjust(assocRes$pvalue_lineage1_conditionMock, "fdr") <= 0.05)
+]
+tgfbGenes <-  rownames(assocRes)[
+  which(p.adjust(assocRes$pvalue_lineage1_conditionTGFB, "fdr") <= 0.05)
+]
+length(mockGenes)
+length(tgfbGenes)
+UpSetR::upset(fromList(list(mock = mockGenes, tgfb = tgfbGenes)))
+```
+
+#### Visualization of DE genes
+
+Below we visualize and cluster the genes whose expression vary over pseudotime, using the smoothed expression patterns
+As was also observed in the original manuscript, genes are mainly upregulated at the start- or endpoints of the lineage.
+
+```{r, eval=TRUE}
+### based on mean smoother
+yhatSmooth <- predictSmooth(sce, gene = mockGenes, nPoints = 50, tidy = FALSE)
+heatSmooth <- pheatmap(t(scale(t(yhatSmooth[, 1:50]))),
+                       cluster_cols = FALSE,
+                       show_rownames = FALSE, 
+                       show_colnames = FALSE)
+## the hierarchical trees constructed here, can also be used for 
+## clustering of the genes according to their average expression pattern.
+cl <- sort(cutree(heatSmooth$tree_row, k = 6))
+table(cl)
+```
+
+
+```{r, eval=FALSE}
+conditions <- colData(sce)$pheno$treatment_id
+pt1 <- colData(sce)$slingshot$pseudotime
+  
+### based on fitted values (plotting takes a while to run)
+yhatCell <- predictCells(sce, gene=mockGenes)
+yhatCellMock <- yhatCell[,conditions == "Mock"]
+# order according to pseudotime
+ooMock <- order(pt1[conditions == "Mock"], decreasing=FALSE)
+yhatCellMock <- yhatCellMock[,ooMock]
+pheatmap(t(scale(t(yhatCellMock))), cluster_cols = FALSE,
+          show_rownames = FALSE, show_colnames=FALSE)
+```
+
+#### Gene set enrichment analysis on genes from the Mock condition
+
+Gene set enrichment analysis on the DE genes within the mock condition confirms the biology on epithelial cell differentiation.
+
+```{r, eval=TRUE}
+## C5 category is according to gene ontology grouping: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4707969/pdf/nihms-743907.pdf
+geneSets <- msigdbr(species = "Mus musculus", category = "C5", subcategory = "BP")
+### filter background to only include genes that we assessed.
+geneSets$gene_symbol <- toupper(geneSets$gene_symbol)
+geneSets <- geneSets[geneSets$gene_symbol %in% names(sce),]
+m_list <- geneSets %>% split(x = .$gene_symbol, f = .$gs_name)
+stats <- assocRes$waldStat_lineage1_conditionMock
+names(stats) <- rownames(assocRes)
+eaRes <- fgsea(pathways = m_list, stats = stats, nperm = 5e4, minSize = 10)
+ooEA <- order(eaRes$pval, decreasing = FALSE)
+kable(head(eaRes[ooEA, 1:3], n = 20))
+```
+
+
+### Differential expression between conditions
+
+In the following sections, we will investigate differential expression for each gene, between the two conditions.
+
+We will first make exploratory data analysis visualizations to take a look at the expression patterns of genes that were also discussed in the original manuscript.
+The paper mentions that CDH1 and CRB3 should be expressed in similar kinetics.
+Note that the lower slope of CDH1 is also observed in the paper.
+
+```{r, eval=TRUE}
+plotSmoothers(sce, assays(sce)$counts, gene = "CDH1", alpha = 1, border = TRUE) + ggtitle("CDH1")
+plotSmoothers(sce, assays(sce)$counts, gene = "CRB3", alpha = 1, border = TRUE) + ggtitle("CRB3")
+```
+
+They also mention that 'only cells treated with TGF-Beta and positioned at the outer extreme of the trajectory expressed robust levels of FN1 and CDH2'.
+
+```{r, eval=TRUE}
+plotSmoothers(sce, assays(sce)$counts, gene = "FN1", alpha = 1, border = TRUE) + ggtitle("FN1")
+plotSmoothers(sce, assays(sce)$counts, gene = "CDH2", alpha = 1, border = TRUE) + ggtitle("CDH2")
+```
+
+#### Differential expression analysis
+
+To test differential expression between conditions, we use the `conditionTest` function implemented in `tradeSeq`. 
+This function tests the null hypothesis that genes have identical expression patterns in each condition.
+We discover $1993$ genes that are DE with a fold change higher than $2$ or lower than $1/2$.
+
+```{r, eval=TRUE}
+condRes <- conditionTest(sce, l2fc = log2(2))
+condRes$padj <- p.adjust(condRes$pvalue, "fdr")
+mean(condRes$padj <= 0.05, na.rm = TRUE)
+sum(condRes$padj <= 0.05, na.rm = TRUE)
+conditionGenes <- rownames(condRes)[condRes$padj <= 0.05]
+conditionGenes <- conditionGenes[!is.na(conditionGenes)]
+```
+
+#### Visualize most and least significant gene
+
+```{r, eval=TRUE}
+# plot genes
+oo <- order(condRes$waldStat, decreasing = TRUE)
+# most significant gene
+plotSmoothers(sce, assays(sce)$counts,
+              gene = rownames(assays(sce)$counts)[oo[1]],
+              alpha = 1, border = TRUE)
+# least significant gene
+plotSmoothers(sce, assays(sce)$counts,
+              gene = rownames(assays(sce)$counts)[oo[nrow(sce)]],
+              alpha = 1, border = TRUE)
+```
+
+### Heatmaps of genes DE between conditions
+
+Below we show heatmaps of the genes DE between conditions. The DE genes in the heatmaps are ordered according to a hierarchical clustering on the TGF-Beta condition.
+
+```{r, eval=TRUE}
+### based on mean smoother
+yhatSmooth <- predictSmooth(sce, gene = conditionGenes, nPoints = 50, tidy = FALSE)
+heatSmooth_TGF <- pheatmap(t(scale(t(yhatSmooth[, 51:100]))),
+  cluster_cols = FALSE,
+  show_rownames = FALSE, show_colnames = FALSE, main = "TGF-Beta", legend = FALSE,
+  silent = TRUE
+)
+matchingHeatmap_mock <- pheatmap(t(scale(t(yhatSmooth[heatSmooth_TGF$tree_row$order, 1:50]))),
+  cluster_cols = FALSE, cluster_rows = FALSE,
+  show_rownames = FALSE, show_colnames = FALSE, main = "Mock",
+  legend = FALSE, silent = TRUE
+)
+grid.arrange(heatSmooth_TGF[[4]], matchingHeatmap_mock[[4]], ncol = 2)
+```
+
+### Gene set enrichment analysis
+
+Gene set enrichment analysis on genes that are differentially expressed between conditions finds evidence for cell motility, cell junctions/adhesion and gastrulation. The original paper also focuses on the KRAS signaling pathway, which induces cell migration, amongst others.
+Other related processes include morphogenesis, gastrulation and cell adhesion.
+
+```{r, eval=TRUE}
+statsCond <- condRes$waldStat
+names(statsCond) <- rownames(condRes)
+eaRes <- fgsea(pathways = m_list, stats = statsCond, nperm = 5e4, minSize = 10)
+ooEA <- order(eaRes$pval, decreasing = FALSE)
+kable(head(eaRes[ooEA, 1:3], n = 20))
+```
+
+
+# Final notes
+
+A compiled version of the vignette is available on the [workshop website](https://github.com/SydneyBioX/BiocAsia2020CiteFuse/articles/workshopTCiteFuse.html).
+
+If you have questions that you could not ask during the workshop, feel free to open an issue on the github repository [here](https://github.com/SydneyBioX/BiocAsia2020CiteFuse/issues).
+
+```{r}
+sessionInfo()
+```
