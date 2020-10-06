@@ -1,0 +1,11 @@
+pandoc: 2.3.1
+pkgdown: 1.6.1
+pkgdown_sha: ~
+articles:
+  CiteFuse_BioCAsia_workshop: CiteFuse_BioCAsia_workshop.html
+  HOWTO_BUILD_WORKSHOP: HOWTO_BUILD_WORKSHOP.html
+last_built: 2020-10-06T11:20Z
+urls:
+  reference: https://seandavi.github.io/sars2pack/reference
+  article: https://seandavi.github.io/sars2pack/articles
+
