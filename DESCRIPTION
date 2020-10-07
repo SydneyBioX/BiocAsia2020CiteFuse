@@ -19,7 +19,10 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.1.0
 Depends: 
     Biobase
-Imports:
+Suggests: 
+    knitr,
+    rmarkdown,
+    pkgdown,
     CiteFuse,
     SingleCellExperiment,
     scater,
@@ -27,10 +30,6 @@ Imports:
     gridExtra,
     mclust,
     igraph
-Suggests: 
-    knitr,
-    rmarkdown,
-    pkgdown
 URL: https://SydneyBioX.github.io/BiocAsia2020CiteFuse/
 BugReports: https://github.com/SydneyBioX/BiocAsia2020CiteFuse/issues/new/choose
 VignetteBuilder: knitr
