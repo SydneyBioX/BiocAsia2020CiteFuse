@@ -366,7 +366,7 @@ visualiseExprs(sce_citeseq, altExp_name = "ADT",
 ```
 
 
-## Perform DE Analysis with Wilcoxon Rank Sum test
+### Perform DE Analysis with Wilcoxon Rank Sum test
 
 CiteFuse also calculates differentially expressed (DE) genes through the `DEgenes` function. The cluster grouping to use must be specified in the `group` parameter. If `altExp_name` is not specified, RNA expression will be used as the default expression matrix. 
 
@@ -388,6 +388,7 @@ datatable(format(do.call(rbind, metadata(sce_citeseq)[["DE_res_RNA_filter"]]),
 ```
 
 ### For ADT count
+
 ```{r}
 sce_citeseq <- DEgenes(sce_citeseq,
                        altExp_name = "ADT", 
@@ -401,11 +402,11 @@ datatable(format(do.call(rbind, metadata(sce_citeseq)[["DE_res_ADT_filter"]]),
 ```
 
 
-## Visualising DE Results
+### Visualising DE Results
 
 The DE genes can be visualised with the `DEbubblePlot` and `DEcomparisonPlot`. In each case, the gene names must first be extracted from the DE result objects. 
 
-### circlepackPlot
+#### circlepackPlot
 
 The `circlepackPlot` takes a list of all DE genes from RNA and ADT DE analysis and will plot only the top most significant DE genes to plot. 
 
@@ -419,7 +420,7 @@ DEbubblePlot(list(RNA = rna_DEgenes, ADT = adt_DEgenes))
 ```
 
 
-### DEcomparisonPlot
+#### DEcomparisonPlot
 
 For the `DEcomparisonPlot`, as well as a list containing the DE genes for RNA and ADT, a `feature_list` specifying the genes and proteins of interest is required.
 
@@ -475,20 +476,6 @@ adjustedRandIndex(sce_citeseq$SNF_W_clust_adtSubset1, sce_citeseq$SNF_W_clust)
 ```
 
 When we compare between the two clustering outcomes, we find that the adjusted rand index is approximately 0.93, where a value of 1 denotes complete concordance. 
-
-## Gene - ADT network
-
-The `geneADTnetwork` function plots an interaction network between genes identified from the DE analysis. The nodes denote proteins and RNA whilst the edges denote positive and negative correlation in expression. 
-
-```{r fig.height = 8, fig.width = 8}
-RNA_feature_subset <- unique(as.character(unlist(lapply(rna_DEgenes_all, "[[", "name"))))
-ADT_feature_subset <- unique(as.character(unlist(lapply(adt_DEgenes_all, "[[", "name"))))
-geneADTnetwork(sce_citeseq,
-               RNA_feature_subset = RNA_feature_subset,
-               ADT_feature_subset = ADT_feature_subset,
-               cor_method = "pearson",
-               network_layout = igraph::layout_with_fr)
-```
 
 
 ## RNA Ligand - ADT Receptor Analysis
@@ -551,6 +538,11 @@ visLigandReceptor(sce_citeseq,
                   receptor_type = "ADT")
 ```
 
+
+
+# Extension
+
+
 ## Between-sample analysis 
 
 Lastly, we will jointly analyse the current PBMC CITE-seq data, taken from healthy human donors, and another subset of CITE-seq data from patients with cutaneous T-cell lymphoma (CTCL), again from Mimitou et al. (2019). The data `sce_ctcl_subset` provided in our `CiteFuse` package already contains the clustering information.
@@ -591,8 +583,19 @@ de_res_filter
 ```
 
 
-## Application of CiteFuse on ASAP-seq
+## Gene - ADT network
 
+The `geneADTnetwork` function plots an interaction network between genes identified from the DE analysis. The nodes denote proteins and RNA whilst the edges denote positive and negative correlation in expression. 
+
+```{r fig.height = 8, fig.width = 8}
+RNA_feature_subset <- unique(as.character(unlist(lapply(rna_DEgenes_all, "[[", "name"))))
+ADT_feature_subset <- unique(as.character(unlist(lapply(adt_DEgenes_all, "[[", "name"))))
+geneADTnetwork(sce_citeseq,
+               RNA_feature_subset = RNA_feature_subset,
+               ADT_feature_subset = ADT_feature_subset,
+               cor_method = "pearson",
+               network_layout = igraph::layout_with_fr)
+```
 
 
 # Final notes
@@ -600,6 +603,8 @@ de_res_filter
 A compiled version of the vignette is available on the [workshop website](https://github.com/SydneyBioX/BiocAsia2020CiteFuse/articles/workshopTCiteFuse.html).
 
 If you have questions that you could not ask during the workshop, feel free to open an issue on the github repository [here](https://github.com/SydneyBioX/BiocAsia2020CiteFuse/issues).
+
+
 
 ```{r}
 sessionInfo()
