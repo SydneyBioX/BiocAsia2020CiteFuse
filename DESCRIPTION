@@ -1,16 +1,17 @@
-Package: BuildABiocWorkshop2020
-Title: Bioconductor Workshop Template and Github Actions
+Package: BiocAsia2020CiteFuse
+Title: Multimodal analysis of CITE-seq data with CiteFuse
 Version: 0.1.1
 Authors@R: 
-    person(given = "Sean",
-           family = "Davis",
+    c(person(given = "Hani",
+           family = "Kim",
            role = c("aut", "cre"),
-           email = "seandavi@gmail.com",
-           comment = c(ORCID = "your-orc-id-here"))
-Description: This package serves as a template for using github actions to 
-    prepare a Bioconductor Workshop package for use. In particular,
-    a pkgdown website and docker image are generated based on workflow 
-    settings. 
+           email = "hani.kim@sydney.edu.au"),
+       person(given = "Yingxin",
+           family = "Lin",
+           role = c("aut"),
+           email = "yingxin.lin@sydney.edu.au"))    
+Description: This is a Bioconductor Workshop package for CiteFuse workshop 
+    for BiocAsia 2020.
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
@@ -18,11 +19,19 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.1.0
 Depends: 
     Biobase
+Imports:
+    CiteFuse,
+    SingleCellExperiment,
+    scater,
+    DT,
+    gridExtra,
+    mclust,
+    igraph
 Suggests: 
     knitr,
     rmarkdown,
     pkgdown
-URL: https://seandavi.github.io/BuildABiocWorkshop2020/
-BugReports: https://github.com/seandavi/BuildABiocWorkshop2020/issues/new/choose
+URL: https://SydneyBioX.github.io/BiocAsia2020CiteFuse/
+BugReports: https://github.com/SydneyBioX/BiocAsia2020CiteFuse/issues/new/choose
 VignetteBuilder: knitr
-DockerImage: seandavi/buildabiocworkshop2020:latest
+DockerImage: yingxinlin/biocasia2020citefuse:latest

@@ -1,6 +1,6 @@
 ---
 title: "CiteFuse"
-author: Yingxin Lin and Hani Jieun Kim^[hani.kim@sydney.edu.au]
+author: Yingxin Lin^[yingxin.lin@sydney.edu.au] and Hani Jieun Kim^[hani.kim@sydney.edu.au]
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{CiteFuse}
@@ -12,6 +12,8 @@ vignette: >
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
+  message = FALSE,
+  warning = FALSE,
   comment = "#>"
 )
 ```
@@ -67,21 +69,6 @@ An example for a 55-minute workshop:
 | Application of CiteFuse on ASAP-seq | 5m   |
 | Wrap-up and Conclusions             | 5m   |
 
-### Workshop goals and objectives
-
-List "big picture" student-centered workshop goals and learning
-objectives. Learning goals and objectives are related, but not the
-same thing. These goals and objectives will help some people to decide
-whether to attend the conference for training purposes, so please make
-these as precise and accurate as possible.
-
-*Learning goals* are high-level descriptions of what
-participants will learn and be able to do after the workshop is
-over. *Learning objectives*, on the other hand, describe in very
-specific and measurable terms specific skills or knowledge
-attained. The [Bloom's Taxonomy](#bloom) may be a useful framework
-for defining and describing your goals and objectives, although there
-are others.
 
 ### Learning goals
 
@@ -119,9 +106,12 @@ library(CiteFuse)
 library(scater)
 library(SingleCellExperiment)
 library(DT)
+library(igraph)
+library(mclust)
+library(gridExtra)
 ```
 
-We have made the pre-processed, integrated dataset available as a `SingleCellExperiment` object in the workshop package, which we import below.
+We have made this public dataset available as a `SingleCellExperiment` object in the workshop package, which we import below.
 
 ```{r}
 data("CITEseq_example", package = "CiteFuse")
@@ -279,7 +269,7 @@ g2 <- visualiseDim(sce_citeseq, dimNames = "tSNE_joint",  colour_by = "ADT_clust
   labs(title = "tSNE (ADT clustering)")
 g3 <- visualiseDim(sce_citeseq, dimNames = "tSNE_joint",  colour_by = "RNA_clust") +
   labs(title = "tSNE (RNA clustering)")
-library(gridExtra)
+
 grid.arrange(g3, g2, g1, ncol = 2)
 ```
 
@@ -480,7 +470,7 @@ system.time(sce_citeseq <- CiteFuse(sce_citeseq,
                                                        "W_RNA")))
 SNF_W_clust_adtSubset1 <- spectralClustering(metadata(sce_citeseq)[["W_SNF_adtSubset1"]], K = 5)
 sce_citeseq$SNF_W_clust_adtSubset1 <- as.factor(SNF_W_clust_adtSubset1$labels)
-library(mclust)
+
 adjustedRandIndex(sce_citeseq$SNF_W_clust_adtSubset1, sce_citeseq$SNF_W_clust)
 ```
 
@@ -555,7 +545,7 @@ visLigandReceptor(sce_citeseq,
 ```
 
 
-```{r fig.height=8, fig.width=8}
+```{r fig.height=8, fig.width=8, results="hide"}
 visLigandReceptor(sce_citeseq,
                   type = "lr_network",
                   receptor_type = "ADT")
