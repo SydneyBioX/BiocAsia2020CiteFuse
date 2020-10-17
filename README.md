@@ -34,8 +34,6 @@ Background reading:
 
 The workshop will start with an introduction to the CITE-seq technology and the dataset using presentation slides. Following this, we will have a lab session on how one may process and integrate multi-modal data and perform downstream analysis involving differential expression, ADT importance evaluation, and ligand-receptor interaction analysis.
 
-
-
 ### _R_ / _Bioconductor_ packages used
 
 * This workshop will focus on Bioconductor packages [SingleCellExperiment] (https://bioconductor.org/packages/release/bioc/html/SingleCellExperiment.html) and  [CiteFuse](https://academic.oup.com/bioinformatics/article-abstract/36/14/4137/5827474?redirectedFrom=fulltext). 
@@ -54,7 +52,7 @@ An example for a 55-minute workshop:
 
 ## Workshop goals and objectives
 
-Participants will learn how to process and apply multi-modal single-cell RNA-seq data and how they be used for interpretation of complex scRNA-seq datasets. 
+Participants will learn how to process and apply multi-modal single-cell RNA-seq data and how they can be used for interpretation of complex scRNA-seq datasets. 
 
 ### Learning goals
 
@@ -62,7 +60,7 @@ Some examples:
 
 * Reason about complex biological systems
 * Grasp the complexity of analyzing biological data where two or more modalities are captured
-* Undersatnd the concept of multi-modal analysis of single-cell data
+* Understand the concept of multi-modal analysis of single-cell data
 
 ### Learning objectives
 
@@ -71,4 +69,4 @@ Some examples:
 * Understand the challenges of multi-modal data analysis 
 * Perform integration of two modalities and clustering of the resulting fused matrix
 * Assess the added complexity or even benefit of handling multi-modal data from single cells
-* Discuss how the analysis pipeline has incorporated this extra information. How may it further take advantage of the data?
+* Discuss how the analysis pipeline has incorporated this extra information. How may it further take advantage of the multi-modal data?
